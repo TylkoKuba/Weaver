@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local System = {}
 
-local Symbols = require(script.Parent.Symbols)
+local Symbols = require(script.Parent.FrameworkData)
 local RemoteProperty = require(script.Parent.NetworkActions.RemoteProperty)
 
 local ServerServices = {}

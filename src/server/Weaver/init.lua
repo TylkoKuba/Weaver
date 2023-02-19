@@ -3,7 +3,7 @@ local RunService = game:GetService("RunService")
 
 local System = require(script.System)
 local Symbols = require(script.Symbols)
-local ModelBehavior = require(script.ModelBehavior)
+local BehaviorSystem = require(script.BehaviorSystem)
 
 local function createSystemRemoteProperty(initialValue: any)
 	return { Symbols.CreateSystemRemoteProperty, initialValue }
@@ -16,8 +16,8 @@ local Weaver = {
 		RemoteProperty = createSystemRemoteProperty,
 		RemoteSignal = Symbols.CreateSystemRemoteSignal,
 	},
-	SharedBehavior = {
-		new = ModelBehavior.newBehavior,
+	Behavior = {
+		new = BehaviorSystem.newBehavior,
 	},
 }
 
@@ -35,11 +35,11 @@ function Weaver.Init()
 		System._start()
 		System._cleanup()
 
-		ModelBehavior._prepare()
-		ModelBehavior._gatherBehaviors()
-		ModelBehavior._prepareNetworking()
-		ModelBehavior._gatherModels()
-		ModelBehavior._init()
+		BehaviorSystem._prepare()
+		BehaviorSystem._gatherBehaviors()
+		BehaviorSystem._prepareNetworking()
+		BehaviorSystem._gatherModels()
+		BehaviorSystem._init()
 	end
 end
 

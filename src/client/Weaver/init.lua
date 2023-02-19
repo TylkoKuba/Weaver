@@ -1,15 +1,15 @@
 local RunService = game:GetService("RunService")
 
 local System = require(script.System)
-local ModelBehavior = require(script.ModelBehavior)
+local BehaviorSystem = require(script.BehaviorSystem)
 
 local Weaver = {
 	System = {
 		new = System.new,
 		Get = System.Get,
 	},
-	SharedBehavior = {
-		new = ModelBehavior.newComponent,
+	Behavior = {
+		new = BehaviorSystem.newBehavior,
 	},
 }
 
@@ -22,9 +22,9 @@ function Weaver.Init()
 		System._start()
 		System._cleanup()
 
-		ModelBehavior._prepare()
-		ModelBehavior._gather()
-		ModelBehavior._init()
+		BehaviorSystem._prepare()
+		BehaviorSystem._gather()
+		BehaviorSystem._init()
 	end
 end
 

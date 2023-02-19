@@ -1,5 +1,7 @@
-local Signal = require(script.Parent.Parent.Signal)
-local Promise = require(script.Parent.Parent.Promise)
+local Libraries: Folder = script.Parent.Parent.Libraries
+
+local Signal = require(Libraries:FindFirstChild("Signal"))
+local Promise = require(Libraries:FindFirstChild("Promise"))
 
 local RemoteProperty = {}
 RemoteProperty.__index = RemoteProperty
