@@ -1,19 +1,22 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local FrameworkData = require(script.Parent.Parent.FrameworkData)
+local Libraries: Folder = script.Parent.Parent.Libraries
 
+local Value = require(script.Parent.Parent.Value)
+local RemoteProperty = require(script.Parent.RemoteProperty)
+local Promise = require(Libraries:FindFirstChild("Promise"))
+
+local behaviorsRegistry = {}
 local behaviorsInstanceDataRegistry = {}
 
 local ServerBehaviors = {}
 
-local Behavior = {
-	[FrameworkData.BehaviorsRegistry] = {},
-}
+local Behavior = {}
 Behavior.__index = Behavior
 
 local function assertBehavior(behavior: string)
 	if not ServerBehaviors[behavior] then
-		local serviceInstance: Folder? = ReplicatedStorage["$_Weaver"]["ModelBehavior"]:FindFirstChild(behavior)
+		local serviceInstance: Folder? = ReplicatedStorage["$_Weaver"]["Behavior"]:FindFirstChild(behavior)
 		if not serviceInstance then
 			return
 		end
@@ -30,14 +33,31 @@ local function assertBehavior(behavior: string)
 			end
 
 			if networkActionType == "Function" then
-				ServerBehaviors[behavior][instance.Name] = function(...)
-					return (instance :: RemoteFunction):InvokeServer(...)
-				end
+				ServerBehaviors[behavior][instance.Name] = {
+					Type = "Function",
+					Instance = instance,
+					Action = function(...)
+						return (instance :: RemoteFunction):InvokeServer(...)
+					end,
+				}
+			elseif networkActionType == "Property" then
+				local remoteEvent: RemoteEvent = instance :: RemoteEvent
+				ServerBehaviors[behavior][instance.Name] = {
+					Type = "Property",
+					Instance = instance,
+					Action = function(inst: Instance)
+						remoteEvent:FireServer(inst)
+					end,
+				}
 			end
 		end
 	end
 
 	return ServerBehaviors[behavior]
+end
+
+function Behavior.GetAll()
+	return behaviorsRegistry
 end
 
 function Behavior.new(config: any)
@@ -58,7 +78,7 @@ function Behavior.new(config: any)
 
 	self.ServerActions = ServerBehaviors[name]
 
-	Behavior[FrameworkData.BehaviorsRegistry][name] = self
+	behaviorsRegistry[name] = self
 	return self
 end
 
@@ -66,7 +86,7 @@ function Behavior:GetBehaviors(instance: Instance)
 	return behaviorsInstanceDataRegistry[instance]
 end
 
-function Behavior:_construct(instance: Instance, clientProperties: any, serverProperties: any)
+function Behavior:_construct(instance: Instance, clientProperties: any)
 	local behaviorInstance: any = setmetatable({
 		Name = self.Name,
 		Instance = instance,
@@ -79,15 +99,23 @@ function Behavior:_construct(instance: Instance, clientProperties: any, serverPr
 	})
 
 	if ServerBehaviors[self.Name] then
-		behaviorInstance.Server = {}
-		for actionName, action in self.ServerActions do
-			behaviorInstance.Server[actionName] = setmetatable({}, {
-				__call = function(_, _, ...)
-					action(instance, ...)
-				end,
-			})
-		end
-		behaviorInstance.Server.Properties = serverProperties
+		behaviorInstance._serverPropertiesInitTask = Promise.try(function()
+			behaviorInstance.Server = {
+				Properties = {},
+			}
+			for actionName, action in self.ServerActions do
+				if action.Type == "Function" then
+					behaviorInstance.Server[actionName] = function(_, ...)
+						action.Action(instance, ...)
+					end
+				elseif action.Type == "Property" then
+					behaviorInstance.Server.Properties[actionName] = RemoteProperty.new(action.Instance, instance)
+					behaviorInstance.Server.Properties[actionName]:OnReady():await()
+				end
+			end
+			behaviorInstance._serverPropertiesInitTask = nil
+		end)
+		behaviorInstance._serverPropertiesInitTask:await()
 	end
 
 	if not behaviorsInstanceDataRegistry[instance] then
@@ -112,6 +140,19 @@ function Behavior:_constructed()
 end
 
 function Behavior:_destroy()
+	if self.Server then
+		for _, remoteProperty in self.Server.Properties do
+			remoteProperty:Destroy()
+		end
+		self.Server.Properties = nil
+	end
+
+	if self._serverPropertiesInitTask then
+		self._serverPropertiesInitTask:cancel()
+		self._serverPropertiesInitTask = nil
+		return
+	end
+
 	if type(self.Destroy) == "function" then
 		self:Destroy()
 	end

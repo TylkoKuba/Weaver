@@ -9,7 +9,6 @@ local TestBehavior = SharedBehavior.new({
 })
 
 function TestBehavior:Construct()
-	warn("Test behavior construct!", self.Instance)
 	self.Server:SomeCoolFunction("Hello Server!", 123)
 
 	for _, instance in self.Instance:GetDescendants() do
@@ -18,10 +17,10 @@ function TestBehavior:Construct()
 			instance.Transparency = 0
 		end
 	end
-end
 
-function TestBehavior:Destroy()
-	print("Test behavior destroy!")
+	self.Server.Properties["Hello"]:Observe(function(newValue: any)
+		print("New val", newValue)
+	end)
 end
 
 return TestBehavior

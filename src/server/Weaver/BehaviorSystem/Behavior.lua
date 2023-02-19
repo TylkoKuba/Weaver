@@ -1,4 +1,8 @@
+local Value = require(script.Parent.Parent.Value)
+local FrameworkData = require(script.Parent.Parent.FrameworkData)
+
 local behaviorRegistry = {}
+local behaviorsInstanceDataRegistry = {}
 
 local Behavior = {}
 Behavior.__index = Behavior
@@ -9,6 +13,10 @@ end
 
 function Behavior.Get(behaviorName: string)
 	return behaviorRegistry[behaviorName]
+end
+
+function Behavior.GetInstance(instance: Instance)
+	return behaviorsInstanceDataRegistry[instance]
 end
 
 function Behavior.new(config: any)
@@ -33,10 +41,20 @@ function Behavior.new(config: any)
 end
 
 function Behavior:_construct(instance: Instance, properties: any)
-	local componentInstance = setmetatable({
+	local propertyValues = {}
+	if self.Config.Properties then
+		for propertyName, propertyData in self.Config.Properties do
+			propertyValues[propertyName] = Value.new(properties[propertyName] or propertyData.Default)
+			propertyValues[propertyName]:Subscribe(function(newValue: any)
+				propertyData[FrameworkData.PropertyRemoteEvent]:FireAllClients(instance, newValue)
+			end)
+		end
+	end
+
+	local behaviorInstance = setmetatable({
 		Name = self.Name,
 		Instance = instance,
-		Properties = properties,
+		Properties = propertyValues,
 		Client = setmetatable({}, {
 			__index = function(_, index)
 				return self.Client[index]
@@ -48,9 +66,15 @@ function Behavior:_construct(instance: Instance, properties: any)
 			return "BehaviorInstance<" .. self.Name .. " / " .. instance.Name .. ">"
 		end,
 	})
-	componentInstance.Client.Server = componentInstance
+	behaviorInstance.Client.Server = behaviorInstance
 
-	return componentInstance
+	if not behaviorsInstanceDataRegistry[instance] then
+		behaviorsInstanceDataRegistry[instance] = {}
+	end
+
+	table.insert(behaviorsInstanceDataRegistry[instance], behaviorInstance)
+
+	return behaviorInstance
 end
 
 function Behavior:_constructed()

@@ -67,6 +67,7 @@ function System.new(system: any)
 		end,
 	})
 
+	system.Priority = system.Priority or 0
 	system[Symbols.System] = true
 	return system
 end

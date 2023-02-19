@@ -15,7 +15,7 @@ local BehaviorsSystem = {}
 function BehaviorsSystem._trackBehaviorLifecycle(model: Model)
 	if modelBehaviorLifecycleData[model] then
 		warn(
-			'[ Weaver | ModelBehavior ] Tried to start tracking lifecycle of Behavior that is already trakced. "'
+			'[ Weaver | BehaviorSystem ] Tried to start tracking lifecycle of Behavior that is already trakced. "'
 				.. model.Name
 				.. '"'
 		)
@@ -44,7 +44,7 @@ function BehaviorsSystem._stopTrackingBehaviorLifecycle(model: Model)
 	local modelBehaviorInstanceData = modelBehaviorLifecycleData[model]
 	if not modelBehaviorInstanceData then
 		warn(
-			'[ Weaver | ModelBehavior ] Tried to stop tracking ModelBehavior lifecycle of a Model that isnt registered. "'
+			'[ Weaver | BehaviorSystem ] Tried to stop tracking Behavior lifecycle of a Model that isnt registered. "'
 				.. model.Name
 				.. '"'
 		)
@@ -61,7 +61,7 @@ end
 function BehaviorsSystem._createComponentInstance(instance: Instance)
 	local instanceData = modelBehaviorLifecycleData[instance]
 	if not instanceData then
-		warn("[ Weaver | Component ] Tried to create component instance for instance whos lifecycle isn't tracked!")
+		warn("[ Weaver | Component ] Tried to create Behavior instance for instance whos lifecycle isn't tracked!")
 		return
 	end
 
@@ -79,13 +79,15 @@ function BehaviorsSystem._createComponentInstance(instance: Instance)
 		local behaviorInstanceData = behaviorInstancesCallbacks[instance]
 		behaviorInstanceData.Processing = true
 
-		instanceData.Components = table.create(#behaviorInstanceData)
-		for _, componentData in behaviorInstanceData.Data do
-			local behavior: any = Behavior[FrameworkData.BehaviorsRegistry][componentData.Behavior]
+		local behaviorRegistry = Behavior.GetAll()
+
+		instanceData.Behaviors = table.create(#behaviorInstanceData)
+		for _, behaviorData in behaviorInstanceData.Data do
+			local behavior: any = behaviorRegistry[behaviorData.Behavior]
 			if behavior then
-				local newBehaviorInstance = behavior:_construct(instance, componentData.Properties)
+				local newBehaviorInstance = behavior:_construct(instance, behaviorData.Properties)
 				newBehaviorInstance:_constructed()
-				table.insert(instanceData.Components, newBehaviorInstance)
+				table.insert(instanceData.Behaviors, newBehaviorInstance)
 			end
 		end
 
@@ -97,7 +99,7 @@ function BehaviorsSystem._destroyComponentInstances(instance: Instance)
 	local instanceData = modelBehaviorLifecycleData[instance]
 	if not instanceData then
 		warn(
-			"[ Weaver | ModelBehavior ] Tried to destroy component instance for instance whos lifecycle isn't tracked!"
+			"[ Weaver | BehaviorSystem ] Tried to destroy Behavior instance for instance whos lifecycle isn't tracked!"
 		)
 		return
 	end
@@ -119,17 +121,17 @@ function BehaviorsSystem._destroyComponentInstances(instance: Instance)
 		instanceData.ClientInstance = nil
 	end
 
-	if instanceData.Components then
-		for _, componentInstance in instanceData.Components do
-			componentInstance:_destroy()
+	if instanceData.Behaviors then
+		for _, behaviorInstance in instanceData.Behaviors do
+			behaviorInstance:_destroy()
 		end
-		instanceData.Components = nil
+		instanceData.Behaviors = nil
 	end
 end
 
 function BehaviorsSystem._prepare()
 	modelBehaviorInstanceStatusEvent =
-		ReplicatedStorage:WaitForChild("$_Weaver"):WaitForChild("ModelBehavior"):WaitForChild("Status")
+		ReplicatedStorage:WaitForChild("$_Weaver"):WaitForChild("Behavior"):WaitForChild("Status")
 	modelBehaviorInstanceStatusEvent.OnClientEvent:Connect(function(instanceId: number, data: any)
 		behaviorInstancesCallbacks[instanceId] = {
 			Data = data,
@@ -139,7 +141,7 @@ function BehaviorsSystem._prepare()
 end
 
 function BehaviorsSystem._init()
-	for _, behavior in Behavior[FrameworkData.BehaviorsRegistry] do
+	for _, behavior in Behavior.GetAll() do
 		behavior:_init()
 	end
 
@@ -178,19 +180,19 @@ end
 
 function BehaviorsSystem._gather()
 	local localPlayerScripts: PlayerScripts = Players.LocalPlayer.PlayerScripts
-	local componentsFolder: Folder? = localPlayerScripts:FindFirstChild("Components")
-	if not componentsFolder then
+	local behaviorsFolder: Folder? = localPlayerScripts:FindFirstChild("Behaviors")
+	if not behaviorsFolder then
 		return
 	end
 
-	for _, instance: Instance in componentsFolder:GetDescendants() do
+	for _, instance: Instance in behaviorsFolder:GetDescendants() do
 		if not instance:IsA("ModuleScript") then
 			continue
 		end
 
 		local success, _ = pcall(require, instance)
 		if not success then
-			error('[ Weaver | Component ] The above component has issues. ("' .. instance.Name .. '")')
+			error('[ Weaver | BehaviorSystem ] The above Behavior has issues. ("' .. instance.Name .. '")')
 		end
 	end
 end

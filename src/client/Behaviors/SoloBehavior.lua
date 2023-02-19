@@ -8,12 +8,4 @@ local SoloBehavior = Behavior.new({
 	Name = "SoloBehavior",
 })
 
-function SoloBehavior:Construct()
-	warn("Solo behavior, just on the client!", self.Instance)
-end
-
-function SoloBehavior:Destroy()
-	print("Solo behavior destroy!")
-end
-
 return SoloBehavior

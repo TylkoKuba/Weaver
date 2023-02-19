@@ -8,12 +8,4 @@ local ServerBehavior = Behavior.new({
 	Name = "ServerBehavior",
 })
 
-function ServerBehavior:Construct()
-	print("ServerBehavior constructed!")
-end
-
-function ServerBehavior:Destroy()
-	print("ServerBehavior destroyed!")
-end
-
 return ServerBehavior

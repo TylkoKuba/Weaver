@@ -35,6 +35,7 @@ function System.new(system: any)
 		error('[ Weaver | System ] Tried to create a system with the same name! "' .. systemName .. '"')
 	end
 
+	system.Priority = system.Priority or 0
 	system[Symbols.System] = true
 	return system
 end

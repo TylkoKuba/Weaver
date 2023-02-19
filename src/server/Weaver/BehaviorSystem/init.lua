@@ -2,19 +2,21 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
-local BEHAVIOR_TAG: string = "$_WeaverModelBehavior"
+local BEHAVIOR_TAG: string = "$_WeaverBehavior"
 
 local Behavior = require(script.Behavior)
+local FrameworkData = require(script.Parent.FrameworkData)
 
 local BehaviorSystem = {
 	newBehavior = Behavior.new,
 }
 
-local modelBehviorFolder, modelBehaviorInstanceStatusEvent
+local modelBehviorFolder, behaviorInstanceStatusEvent, behaviorInstancePropertyEvent
 local behaviorsRegistry = {}
 local behaviorsRegistryIdMap = {}
 
 local instanceIdCounter = 0
+local behaviorLifecycleData = {}
 
 local function getInstanceMetadata(instance: Instance)
 	local dataFolder: Folder? = instance:FindFirstChild("$_Metadata")
@@ -97,6 +99,52 @@ function BehaviorSystem._callRemoteFunction(
 	end
 end
 
+function BehaviorSystem:_trackBehaviorLifecycle(instance: Instance)
+	if behaviorLifecycleData[instance] then
+		warn(
+			'[ Weaver | Behavior ] Tried to start tracking lifecycle of Behavior that is already trakced. "'
+				.. instance.Name
+				.. '"'
+		)
+		return
+	end
+
+	behaviorLifecycleData[instance] = {
+		AncestryChanged = instance.AncestryChanged:Connect(function(_, parent)
+			-- TODO: Temp fix because ChildAdded gets fired before AncestryChanged
+			task.defer(function()
+				if parent and instance:IsDescendantOf(workspace) then
+					self:_trackInstance(instance)
+				else
+					self:_stopTrackingInstance(instance)
+				end
+			end)
+		end),
+	}
+
+	if instance:IsDescendantOf(workspace) then
+		self:_trackInstance(instance)
+	end
+end
+
+function BehaviorSystem:_stopTrackingBehaviorLifecycle(instance: Instance)
+	local modelBehaviorInstanceData = behaviorLifecycleData[instance]
+	if not modelBehaviorInstanceData then
+		warn(
+			'[ Weaver | BehaviorSystem ] Tried to stop tracking Behavior lifecycle of a Model that isnt registered. "'
+				.. instance.Name
+				.. '"'
+		)
+		return
+	end
+
+	self:_stopTrackingInstance(instance)
+
+	modelBehaviorInstanceData.AncestryChanged:Disconnect()
+	modelBehaviorInstanceData.AncestryChanged = nil
+	behaviorLifecycleData[instance] = nil
+end
+
 function BehaviorSystem:_trackInstance(instance: Instance)
 	if instance:IsA("Model") then
 		local model: Model = instance :: Model
@@ -124,19 +172,6 @@ function BehaviorSystem:_trackInstance(instance: Instance)
 
 		local behaviors = {}
 		for componentName, componentData in instanceData do
-			local component = Behavior.Get(componentName)
-			if component then
-				if component.Config.Properties then
-					for propName, propConf in component.Config.Properties do
-						if componentData[propName] then
-							continue
-						end
-
-						componentData[propName] = propConf.Default
-					end
-				end
-			end
-
 			table.insert(behaviors, {
 				Name = componentName,
 				DefaultProperties = componentData,
@@ -177,7 +212,7 @@ function BehaviorSystem:_trackInstance(instance: Instance)
 		for _, modelBehavior in behaviors do
 			local behavior = Behavior.Get(modelBehavior.Name)
 			if behavior then
-				modelBehavior.Instance = behavior:_construct(instance, instanceId, modelBehavior.DefaultProperties)
+				modelBehavior.Instance = behavior:_construct(instance, modelBehavior.DefaultProperties)
 			end
 		end
 
@@ -213,54 +248,63 @@ end
 
 function BehaviorSystem._gatherModels()
 	CollectionService:GetInstanceAddedSignal(BEHAVIOR_TAG):Connect(function(instance: Instance)
-		BehaviorSystem:_trackInstance(instance)
+		BehaviorSystem:_trackBehaviorLifecycle(instance)
 	end)
 
 	CollectionService:GetInstanceRemovedSignal(BEHAVIOR_TAG):Connect(function(instance: Instance)
-		BehaviorSystem:_stopTrackingInstance(instance)
+		BehaviorSystem:_stopTrackingBehaviorLifecycle(instance)
 	end)
 
 	for _, instance: Instance in CollectionService:GetTagged(BEHAVIOR_TAG) do
-		BehaviorSystem:_trackInstance(instance)
-
-		task.delay(5, function()
-			local cI: Model = instance:Clone()
-			local rx, ry, rz = cI:GetPivot():ToOrientation()
-			cI:PivotTo(CFrame.new(Vector3.new(0, 10, 0)) * CFrame.Angles(rx, ry, rz))
-			cI.Parent = workspace
-
-			instance:Destroy()
-
-			-- task.wait(2)
-			-- task.spawn(function()
-			-- 	local t = 0
-			-- 	while t <= 10 do
-			-- 		cI:PivotTo(CFrame.new(Vector3.new(0, 10 + t, 0)) * CFrame.Angles(rx, ry, rz))
-			-- 		t += task.wait()
-			-- 	end
-			-- end)
-
-			-- task.wait(5)
-			-- instance:Destroy()
-			-- task.wait(10)
-			-- cI:Destroy()
-		end)
+		BehaviorSystem:_trackBehaviorLifecycle(instance)
 	end
 end
 
 function BehaviorSystem._prepare()
 	modelBehviorFolder = Instance.new("Folder")
-	modelBehviorFolder.Name = "ModelBehavior"
+	modelBehviorFolder.Name = "Behavior"
 	modelBehviorFolder.Parent = ReplicatedStorage["$_Weaver"]
 
-	modelBehaviorInstanceStatusEvent = Instance.new("RemoteEvent")
-	modelBehaviorInstanceStatusEvent.Name = "Status"
-	modelBehaviorInstanceStatusEvent.Parent = modelBehviorFolder
+	behaviorInstanceStatusEvent = Instance.new("RemoteEvent")
+	behaviorInstanceStatusEvent.Name = "Status"
+	behaviorInstanceStatusEvent.Parent = modelBehviorFolder
+
+	behaviorInstancePropertyEvent = Instance.new("RemoteEvent")
+	behaviorInstancePropertyEvent.Name = "Property"
+	behaviorInstancePropertyEvent.Parent = modelBehviorFolder
 end
 
 function BehaviorSystem._prepareNetworking()
 	for _, registryBehavior in Behavior.GetAll() do
 		local behaviorFolder = assertBehaviorFolder(registryBehavior.Name)
+
+		if registryBehavior.Config.Properties then
+			for propertyName, propertyData in registryBehavior.Config.Properties do
+				local remotePropertyInstance: RemoteEvent = Instance.new("RemoteEvent")
+				remotePropertyInstance:SetAttribute("Type", "Property")
+				remotePropertyInstance.Name = propertyName
+				remotePropertyInstance.Parent = behaviorFolder
+				propertyData[FrameworkData.PropertyRemoteEvent] = remotePropertyInstance
+				remotePropertyInstance.OnServerEvent:Connect(function(player: Player, instance: Instance)
+					local behaviorInstance = behaviorsRegistry[instance]
+					if not behaviorInstance then
+						return
+					end
+
+					for _, behavior in behaviorInstance.Behaviors do
+						if behavior.Name == registryBehavior.Name then
+							remotePropertyInstance:FireClient(
+								player,
+								instance,
+								behavior.Instance.Properties[propertyName]:Get()
+							)
+							return
+						end
+					end
+				end)
+			end
+		end
+
 		for networkActionName, networkAction in registryBehavior.Client do
 			if typeof(networkAction) == "function" then
 				local remoteFunctionInstance: RemoteFunction = Instance.new("RemoteFunction")
@@ -284,27 +328,25 @@ function BehaviorSystem._prepareNetworking()
 end
 
 function BehaviorSystem._init()
-	modelBehaviorInstanceStatusEvent.OnServerEvent:Connect(
-		function(player: Player, instance: Instance, streamedIn: boolean)
-			local behaviorInstance = behaviorsRegistry[instance]
-			if not behaviorInstance then
-				return
-			end
-
-			if streamedIn then
-				local components = {}
-				for _, behavior in behaviorInstance.Behaviors do
-					table.insert(components, {
-						Behavior = behavior.Name,
-						Properties = behavior.DefaultProperties,
-					})
-				end
-				modelBehaviorInstanceStatusEvent:FireClient(player, instance, components)
-			else
-				print("Remove player from streamed clients")
-			end
+	behaviorInstanceStatusEvent.OnServerEvent:Connect(function(player: Player, instance: Instance, streamedIn: boolean)
+		local behaviorInstance = behaviorsRegistry[instance]
+		if not behaviorInstance then
+			return
 		end
-	)
+
+		if streamedIn then
+			local components = {}
+			for _, behavior in behaviorInstance.Behaviors do
+				table.insert(components, {
+					Behavior = behavior.Name,
+					Properties = behavior.DefaultProperties,
+				})
+			end
+			behaviorInstanceStatusEvent:FireClient(player, instance, components)
+		else
+			print("Remove player from streamed clients")
+		end
+	end)
 
 	for _, behavior in Behavior.GetAll() do
 		behavior:_init()
@@ -312,7 +354,7 @@ function BehaviorSystem._init()
 end
 
 function BehaviorSystem._gatherBehaviors()
-	local componentsFolder: Folder? = ServerScriptService:FindFirstChild("Components")
+	local componentsFolder: Folder? = ServerScriptService:FindFirstChild("Behaviors")
 	if not componentsFolder then
 		return
 	end
@@ -324,7 +366,7 @@ function BehaviorSystem._gatherBehaviors()
 
 		local success, _ = pcall(require, instance)
 		if not success then
-			error('[ Weaver | Component ] The above component has issues. ("' .. instance.Name .. '")')
+			error('[ Weaver | Behavior ] The above component has issues. ("' .. instance.Name .. '")')
 		end
 	end
 end

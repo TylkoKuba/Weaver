@@ -21,16 +21,19 @@ function TestBehavior.Client:SomeCoolFunction(player: Player, ...)
 end
 
 function TestBehavior:Construct()
-	print("TestBehavior constructed!")
 	for _, instance in self.Instance:GetDescendants() do
 		if instance:IsA("BasePart") then
 			instance.Transparency = 1
 		end
 	end
-end
 
-function TestBehavior:Destroy()
-	print("TestBehavior destroyed!")
+	task.delay(2, function()
+		self.Properties["Hello"]:Set(math.random(0, 100))
+	end)
+
+	task.delay(5, function()
+		self.Instance:Clone().Parent = workspace
+	end)
 end
 
 return TestBehavior

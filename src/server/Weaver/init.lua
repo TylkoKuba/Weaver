@@ -22,10 +22,12 @@ local Weaver = {
 }
 
 function Weaver.Init()
-	if RunService:IsRunMode() then
-		local weaverFolder = Instance.new("Folder")
-		weaverFolder.Name = "$_Weaver"
-		weaverFolder.Parent = ReplicatedStorage
+	if RunService:IsRunning() then
+		if not ReplicatedStorage:FindFirstChild("$_Weaver") then
+			local weaverFolder = Instance.new("Folder")
+			weaverFolder.Name = "$_Weaver"
+			weaverFolder.Parent = ReplicatedStorage
+		end
 
 		System._prepare()
 		System._gather()

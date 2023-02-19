@@ -14,7 +14,7 @@ local Weaver = {
 }
 
 function Weaver.Init()
-	if RunService:IsClient() then
+	if RunService:IsClient() and RunService:IsRunning() then
 		System._waitForData()
 		System._gather()
 		System._sort()
