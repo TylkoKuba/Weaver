@@ -15,7 +15,7 @@ function Behavior.Get(behaviorName: string)
 	return behaviorRegistry[behaviorName]
 end
 
-function Behavior.GetInstance(instance: Instance)
+function Behavior.GetInstanceBehaviors(instance: Instance)
 	return behaviorsInstanceDataRegistry[instance]
 end
 
@@ -52,7 +52,7 @@ function Behavior:_construct(instance: Instance, properties: any)
 	end
 
 	local behaviorInstance = setmetatable({
-		Name = self.Name,
+		Behavior = self,
 		Instance = instance,
 		Properties = propertyValues,
 		Client = setmetatable({}, {
@@ -92,6 +92,17 @@ end
 function Behavior:_destroy()
 	if type(self.Destroy) == "function" then
 		self:Destroy()
+	end
+
+	for index, behaviorInstance in behaviorsInstanceDataRegistry[self.Instance] do
+		if behaviorInstance == self then
+			table.remove(behaviorsInstanceDataRegistry[self.Instance], index)
+
+			if #behaviorsInstanceDataRegistry[self.Instance] == 0 then
+				behaviorsInstanceDataRegistry[self.Instance] = nil
+			end
+			return
+		end
 	end
 end
 

@@ -9,6 +9,7 @@ local FrameworkData = require(script.Parent.FrameworkData)
 
 local BehaviorSystem = {
 	newBehavior = Behavior.new,
+	getInstanceBehaviors = Behavior.GetInstanceBehaviors,
 }
 
 local modelBehviorFolder, behaviorInstanceStatusEvent, behaviorInstancePropertyEvent

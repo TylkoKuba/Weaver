@@ -18,6 +18,7 @@ local Weaver = {
 	},
 	Behavior = {
 		new = BehaviorSystem.newBehavior,
+		GetInstanceBehaviors = BehaviorSystem.getInstanceBehaviors,
 	},
 }
 

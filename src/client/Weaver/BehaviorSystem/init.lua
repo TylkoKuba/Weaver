@@ -10,7 +10,10 @@ local behaviorInstancesCallbacks = {}
 local modelBehaviorLifecycleData = {}
 local modelBehaviorInstanceStatusEvent
 
-local BehaviorsSystem = {}
+local BehaviorsSystem = {
+	newBehavior = Behavior.new,
+	getInstanceBehaviors = Behavior.GetInstanceBehaviors,
+}
 
 function BehaviorsSystem._trackBehaviorLifecycle(model: Model)
 	if modelBehaviorLifecycleData[model] then
@@ -86,9 +89,12 @@ function BehaviorsSystem._createComponentInstance(instance: Instance)
 			local behavior: any = behaviorRegistry[behaviorData.Behavior]
 			if behavior then
 				local newBehaviorInstance = behavior:_construct(instance, behaviorData.Properties)
-				newBehaviorInstance:_constructed()
 				table.insert(instanceData.Behaviors, newBehaviorInstance)
 			end
+		end
+
+		for _, behavior in instanceData.Behaviors do
+			behavior:_constructed()
 		end
 
 		behaviorInstancesCallbacks[instance] = nil
@@ -196,7 +202,5 @@ function BehaviorsSystem._gather()
 		end
 	end
 end
-
-BehaviorsSystem.newBehavior = Behavior.new
 
 return BehaviorsSystem

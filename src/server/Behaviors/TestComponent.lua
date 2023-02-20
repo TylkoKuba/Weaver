@@ -31,9 +31,9 @@ function TestBehavior:Construct()
 		self.Properties["Hello"]:Set(math.random(0, 100))
 	end)
 
-	task.delay(5, function()
-		self.Instance:Clone().Parent = workspace
-	end)
+	for _, behaviorInstance in Behavior.GetInstanceBehaviors(self.Instance) do
+		print(behaviorInstance.Behavior)
+	end
 end
 
 return TestBehavior

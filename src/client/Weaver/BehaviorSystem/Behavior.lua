@@ -60,6 +60,14 @@ function Behavior.GetAll()
 	return behaviorsRegistry
 end
 
+function Behavior.Get(behaviorName: string)
+	return behaviorsRegistry[behaviorName]
+end
+
+function Behavior.GetInstanceBehaviors(instance: Instance)
+	return behaviorsInstanceDataRegistry[instance]
+end
+
 function Behavior.new(config: any)
 	local name: string? = config.Name
 	if not name then
@@ -82,13 +90,9 @@ function Behavior.new(config: any)
 	return self
 end
 
-function Behavior:GetBehaviors(instance: Instance)
-	return behaviorsInstanceDataRegistry[instance]
-end
-
 function Behavior:_construct(instance: Instance, clientProperties: any)
 	local behaviorInstance: any = setmetatable({
-		Name = self.Name,
+		Behavior = self,
 		Instance = instance,
 		Properties = clientProperties,
 	}, {

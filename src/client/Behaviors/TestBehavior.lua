@@ -2,9 +2,9 @@ local Players = game:GetService("Players")
 
 local Weaver = require(Players.LocalPlayer.PlayerScripts.Weaver)
 
-local SharedBehavior = Weaver.Behavior
+local Behavior = Weaver.Behavior
 
-local TestBehavior = SharedBehavior.new({
+local TestBehavior = Behavior.new({
 	Name = "TestBehavior",
 })
 
@@ -21,6 +21,8 @@ function TestBehavior:Construct()
 	self.Server.Properties["Hello"]:Observe(function(newValue: any)
 		print("New val", newValue)
 	end)
+
+	print(Behavior.GetInstanceBehaviors(self.Instance))
 end
 
 return TestBehavior
