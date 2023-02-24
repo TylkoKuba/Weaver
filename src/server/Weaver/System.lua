@@ -114,7 +114,7 @@ function System._prepareNetworking()
 					remoteFunctionInstance.Parent = sFolder
 
 					remoteFunctionInstance.OnServerInvoke = function(...)
-						return system.Client[networkActionName](...)
+						return system.Client[networkActionName](system.Client, ...)
 					end
 				end
 			end

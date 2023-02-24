@@ -2,6 +2,7 @@ local RunService = game:GetService("RunService")
 
 local System = require(script.System)
 local BehaviorSystem = require(script.BehaviorSystem)
+local Value = require(script.Value)
 
 local Weaver = {
 	System = {
@@ -12,6 +13,7 @@ local Weaver = {
 		new = BehaviorSystem.newBehavior,
 		GetInstanceBehaviors = BehaviorSystem.getInstanceBehaviors,
 	},
+	Value = Value,
 }
 
 function Weaver.Init()

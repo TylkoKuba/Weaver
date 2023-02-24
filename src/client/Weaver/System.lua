@@ -42,7 +42,7 @@ local function assertService(service: string)
 			elseif networkActionType == "Property" then
 				ServerServices[service][instance.Name] = RemoteProperty.new(instance)
 			elseif networkActionType == "Function" then
-				ServerServices[service][instance.Name] = function(...)
+				ServerServices[service][instance.Name] = function(_, ...)
 					return (instance :: RemoteFunction):InvokeServer(...)
 				end
 			end
@@ -91,15 +91,13 @@ function System._gather()
 
 		local success, systemData = pcall(require, instance)
 		if success then
+			if typeof(systemData) ~= "table" then
+				continue
+			end
+
 			local isWeaverSystem = systemData[Symbols.System] == true
 			if isWeaverSystem then
 				System._register(systemData)
-			else
-				warn(
-					'[ Weaver | System ] A ModuleScript was found inside of Systems folder, please remove it to avoid any issues. ("'
-						.. instance.Name
-						.. '")'
-				)
 			end
 		else
 			error('[ Weaver | System ] The above system has issues. ("' .. instance.Name .. '")')
